@@ -12,6 +12,7 @@ struct ContentView: View {
         VStack {
             Image(systemName: "globe")
                 .imageScale(.large)
+                .imageScale(.large)
                 .foregroundStyle(.tint)
             Text("Olive")
         }
