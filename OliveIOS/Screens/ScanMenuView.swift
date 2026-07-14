@@ -242,13 +242,17 @@ struct ScanMenuView: View {
                         return
                     }
 
-                    uploadedImage = image
+                    let croppedImage = MenuImageCropper.crop(
+                        image: image,
+                        to: scanFrame
+                    )
 
-                    /*
-                     Pass `image` to your OCR or results page here.
-                     Example:
-                     viewModel.scanMenu(image)
-                     */
+                    uploadedImage = croppedImage
+                    cameraManager.capturedImage = croppedImage
+
+                    UIImpactFeedbackGenerator(style: .light)
+                        .impactOccurred()
+
                 } label: {
                     Label("Use Photo", systemImage: "checkmark")
                         .frame(maxWidth: .infinity)
