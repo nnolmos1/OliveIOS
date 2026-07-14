@@ -18,7 +18,7 @@ struct MainTabView: View {
                     Label("Home", systemImage: "house.fill")
                 }
 
-            Scan()
+            ScanMenuView()
                 .tabItem {
                     Label("Scan", systemImage: "camera.fill")
                 }
