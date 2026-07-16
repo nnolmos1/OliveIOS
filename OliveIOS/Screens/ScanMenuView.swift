@@ -18,12 +18,15 @@ struct ScanMenuView: View {
         case paste = "Paste"
     }
 
+    private let usesDemoMenu: Bool
+
     @StateObject private var cameraManager = CameraManager()
 
     @State private var selectedMode: ScannerMode = .scan
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var uploadedImage: UIImage?
     @State private var pastedMenuText = ""
+    @State private var showScanResults: Bool
 
     // The scan frame is stored as percentages of the camera preview.
     @State private var scanFrame = CGRect(
@@ -33,31 +36,50 @@ struct ScanMenuView: View {
         height: 0.55
     )
 
+    init(
+        usesDemoMenu: Bool = false,
+        showsResultsOnAppear: Bool = false
+    ) {
+        self.usesDemoMenu = usesDemoMenu
+        _showScanResults = State(initialValue: showsResultsOnAppear)
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
-            modePicker
+        ZStack {
+            VStack(spacing: 16) {
+                modePicker
 
-            Group {
-                switch selectedMode {
-                case .scan:
-                    scannerContent
+                Group {
+                    switch selectedMode {
+                    case .scan:
+                        scannerContent
 
-                case .upload:
-                    uploadContent
+                    case .upload:
+                        uploadContent
 
-                case .paste:
-                    pasteContent
+                    case .paste:
+                        pasteContent
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+
+            if showScanResults {
+                scanResultsOverlay
+                    .transition(
+                        .move(edge: .bottom)
+                            .combined(with: .opacity)
+                    )
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
         .background(
             Color(red: 0.92, green: 0.88, blue: 0.79)
                 .ignoresSafeArea()
         )
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: showScanResults)
         .onAppear {
             if selectedMode == .scan {
                 cameraManager.startSession()
@@ -67,6 +89,8 @@ struct ScanMenuView: View {
             cameraManager.stopSession()
         }
         .onChange(of: selectedMode) { _, newMode in
+            showScanResults = false
+
             if newMode == .scan {
                 cameraManager.startSession()
             } else {
@@ -125,19 +149,19 @@ struct ScanMenuView: View {
             let size = geometry.size
 
             ZStack {
-                cameraBackground(size: size)
-
-                if cameraManager.permissionGranted {
-                    CameraPreview(session: cameraManager.session)
-                        .frame(width: size.width, height: size.height)
-                        .clipped()
+                if cameraManager.permissionGranted || usesDemoMenu {
+                    scanSurface(size: size)
 
                     ScanFrameOverlay(
                         normalizedFrame: $scanFrame,
                         containerSize: size
                     )
 
-                    cameraControls
+                    if cameraManager.capturedImage == nil {
+                        cameraControls
+                    } else {
+                        capturedImageControls
+                    }
                 } else {
                     permissionView
                 }
@@ -151,18 +175,99 @@ struct ScanMenuView: View {
     }
 
     @ViewBuilder
-    private func cameraBackground(size: CGSize) -> some View {
+    private func scanSurface(size: CGSize) -> some View {
         if let image = cameraManager.capturedImage {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFill()
                 .frame(width: size.width, height: size.height)
                 .clipped()
-                .overlay {
-                    capturedImageControls
-                }
+        } else if usesDemoMenu {
+            demoMenuCameraView(size: size)
         } else {
-            Color.black
+            CameraPreview(session: cameraManager.session)
+                .frame(width: size.width, height: size.height)
+                .clipped()
+        }
+    }
+
+    private func demoMenuCameraView(size: CGSize) -> some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.38, green: 0.39, blue: 0.36),
+                    Color(red: 0.58, green: 0.58, blue: 0.53)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("LUNCH MENU")
+                    .font(.system(size: 22, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 8)
+
+                demoMenuSection(
+                    title: "STARTERS",
+                    rows: [
+                        ("Tomato Soup", "$6.50"),
+                        ("Garden Salad", "$8.00")
+                    ]
+                )
+
+                demoMenuSection(
+                    title: "ENTREES",
+                    rows: [
+                        ("Grilled Chicken Alfredo", "$16.99"),
+                        ("Peanut Stir Fry", "$15.99"),
+                        ("Herb Salmon Plate", "$18.50")
+                    ]
+                )
+
+                demoMenuSection(
+                    title: "SIDES",
+                    rows: [
+                        ("French Fries", "$4.50"),
+                        ("Steamed Broccoli", "$4.50")
+                    ]
+                )
+
+                demoMenuSection(
+                    title: "DRINKS",
+                    rows: [
+                        ("Lemonade", "$3.50"),
+                        ("Iced Tea", "$3.50")
+                    ]
+                )
+            }
+            .font(.system(size: 13))
+            .foregroundStyle(.black)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 26)
+            .frame(width: size.width * 0.7)
+            .background(Color.white.opacity(0.95))
+            .rotationEffect(.degrees(-1.2))
+            .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    private func demoMenuSection(
+        title: String,
+        rows: [(String, String)]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title)
+                .font(.system(size: 10, weight: .bold))
+
+            ForEach(rows, id: \.0) { row in
+                HStack(alignment: .firstTextBaseline) {
+                    Text(row.0)
+                    Spacer()
+                    Text(row.1)
+                }
+            }
         }
     }
 
@@ -201,7 +306,12 @@ struct ScanMenuView: View {
                 }
 
                 Button {
-                    cameraManager.capturePhoto()
+                    if usesDemoMenu {
+                        showScanResults = true
+                    } else {
+                        cameraManager.capturePhoto()
+                    }
+
                     UIImpactFeedbackGenerator(style: .medium)
                         .impactOccurred()
                 } label: {
@@ -230,6 +340,7 @@ struct ScanMenuView: View {
             HStack(spacing: 12) {
                 Button {
                     cameraManager.capturedImage = nil
+                    showScanResults = false
                     cameraManager.startSession()
                 } label: {
                     Label("Retake", systemImage: "arrow.counterclockwise")
@@ -253,6 +364,7 @@ struct ScanMenuView: View {
                     UIImpactFeedbackGenerator(style: .light)
                         .impactOccurred()
 
+                    showScanResults = true
                 } label: {
                     Label("Use Photo", systemImage: "checkmark")
                         .frame(maxWidth: .infinity)
@@ -428,6 +540,7 @@ struct ScanMenuView: View {
                 await MainActor.run {
                     uploadedImage = image
                     cameraManager.capturedImage = nil
+                    showScanResults = false
                     selectedMode = .upload
                 }
             } catch {
@@ -435,6 +548,249 @@ struct ScanMenuView: View {
             }
         }
     }
+}
+
+// MARK: - Scan Results
+
+private extension ScanMenuView {
+
+    var scanResultsOverlay: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.52)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    showScanResults = false
+                }
+
+            scanResultsSheet
+                .padding(.horizontal, 14)
+                .padding(.bottom, 18)
+        }
+    }
+
+    var scanResultsSheet: some View {
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.34))
+                .frame(width: 38, height: 5)
+                .padding(.top, 10)
+                .padding(.bottom, 16)
+
+            HStack {
+                Text("Scan Results")
+                    .font(.system(size: 18, weight: .bold))
+
+                Spacer()
+
+                Button {
+                    showScanResults = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close scan results")
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 12)
+
+            ScrollView {
+                VStack(spacing: 12) {
+                    resultIntro
+
+                    resultGroup(
+                        title: "Safe Choices",
+                        subtitle: "Good matches for your profile.",
+                        systemImage: "checkmark.circle.fill",
+                        tint: Color(red: 0.35, green: 0.48, blue: 0.38),
+                        items: safeMenuItems
+                    )
+
+                    resultGroup(
+                        title: "Use Caution",
+                        subtitle: "Likely okay with a small adjustment.",
+                        systemImage: "exclamationmark.circle.fill",
+                        tint: Color(red: 0.67, green: 0.54, blue: 0.26),
+                        items: cautionMenuItems
+                    )
+
+                    resultGroup(
+                        title: "Avoid",
+                        subtitle: "Not a fit for your current restrictions.",
+                        systemImage: "xmark.circle.fill",
+                        tint: Color(red: 0.56, green: 0.34, blue: 0.32),
+                        items: avoidMenuItems
+                    )
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 16)
+            }
+            .frame(maxHeight: 480)
+
+            Button {
+                showScanResults = false
+            } label: {
+                Text("Done")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(red: 0.15, green: 0.23, blue: 0.35))
+                    )
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 16)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 22)
+                .fill(Color(.systemBackground))
+        )
+        .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+    }
+
+    var resultIntro: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Items are grouped by fit")
+                .font(.system(size: 15, weight: .semibold))
+
+            Text("Based on Type 2 Diabetes, hypertension, and peanut allergy.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.secondarySystemBackground))
+        )
+    }
+
+    func resultGroup(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        tint: Color,
+        items: [ScannedMenuItem]
+    ) -> some View {
+        DisclosureGroup {
+            VStack(spacing: 10) {
+                ForEach(items) { item in
+                    resultItemRow(item)
+                }
+            }
+            .padding(.top, 12)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(title) (\(items.count))")
+                        .font(.system(size: 15, weight: .semibold))
+
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.systemBackground))
+                .stroke(Color(.separator).opacity(0.35), lineWidth: 1)
+        )
+        .tint(.primary)
+    }
+
+    func resultItemRow(_ item: ScannedMenuItem) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(item.name)
+                    .font(.system(size: 14, weight: .semibold))
+
+                Spacer()
+
+                Text(item.tag)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color(.tertiarySystemBackground))
+                    )
+            }
+
+            Text(item.explanation)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemBackground))
+        )
+    }
+
+    var safeMenuItems: [ScannedMenuItem] {
+        [
+            ScannedMenuItem(
+                name: "Herb Salmon Plate",
+                tag: "Protein",
+                explanation: "Lean protein with no listed peanut ingredients. Ask for sauce on the side to keep sodium lower."
+            ),
+            ScannedMenuItem(
+                name: "Steamed Broccoli",
+                tag: "Low carb",
+                explanation: "A vegetable side that supports blood sugar goals and is usually lower in sodium."
+            )
+        ]
+    }
+
+    var cautionMenuItems: [ScannedMenuItem] {
+        [
+            ScannedMenuItem(
+                name: "Grilled Chicken Alfredo",
+                tag: "High carb",
+                explanation: "Pasta can raise blood sugar. Consider a half portion or pair it with extra vegetables."
+            ),
+            ScannedMenuItem(
+                name: "Tomato Soup",
+                tag: "Sodium",
+                explanation: "Soups are often high in sodium, which matters for hypertension. Ask if a low-sodium option is available."
+            )
+        ]
+    }
+
+    var avoidMenuItems: [ScannedMenuItem] {
+        [
+            ScannedMenuItem(
+                name: "Peanut Stir Fry",
+                tag: "Allergen",
+                explanation: "Contains peanuts, which conflicts with your peanut allergy. Choose a different entree."
+            )
+        ]
+    }
+}
+
+private struct ScannedMenuItem: Identifiable {
+    let id = UUID()
+    let name: String
+    let tag: String
+    let explanation: String
 }
 
 // MARK: - Resizable Scan Frame
@@ -700,5 +1056,12 @@ private struct ScannerActionButtonStyle: ButtonStyle {
 // MARK: - Preview
 
 #Preview {
-    ScanMenuView()
+    ScanMenuView(usesDemoMenu: true)
+}
+
+#Preview("Scan Results") {
+    ScanMenuView(
+        usesDemoMenu: true,
+        showsResultsOnAppear: true
+    )
 }
