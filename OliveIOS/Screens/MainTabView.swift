@@ -56,6 +56,7 @@ struct MainTabView: View {
                 }
                 .tag(Tab.profile)
         }
+        .tint(OliveTheme.primaryGreen)
     }
 }
 

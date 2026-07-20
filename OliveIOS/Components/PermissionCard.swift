@@ -20,13 +20,7 @@ struct PermissionCard: View {
 
             Image(systemName: icon)
                 .font(.system(size: 24))
-                .foregroundStyle(
-                    Color(
-                        red: 0.42,
-                        green: 0.58,
-                        blue: 0.46
-                    )
-                )
+                .foregroundStyle(OliveTheme.primaryGreen)
                 .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 6) {
@@ -49,11 +43,7 @@ struct PermissionCard: View {
             .font(.title3)
             .foregroundStyle(
                 isEnabled
-                ? Color(
-                    red: 0.42,
-                    green: 0.58,
-                    blue: 0.46
-                )
+                ? OliveTheme.primaryGreen
                 : .gray.opacity(0.4)
             )
         }

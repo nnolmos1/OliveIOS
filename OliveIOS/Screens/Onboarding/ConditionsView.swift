@@ -22,11 +22,7 @@ struct ConditionsView: View {
 
         ZStack {
 
-            Color(
-                red: 0.97,
-                green: 0.96,
-                blue: 0.94
-            )
+            OliveTheme.onboardingBackground
             .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 24) {
@@ -39,13 +35,7 @@ struct ConditionsView: View {
                         .foregroundStyle(.secondary)
 
                     ProgressView(value: 0.2)
-                        .tint(
-                            Color(
-                                red: 0.42,
-                                green: 0.58,
-                                blue: 0.46
-                            )
-                        )
+                        .tint(OliveTheme.primaryGreen)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -53,6 +43,7 @@ struct ConditionsView: View {
                     Text("Tell us about your health")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .foregroundStyle(OliveTheme.navyText)
 
                     Text("Select any conditions that apply to you.")
                         .foregroundStyle(.secondary)

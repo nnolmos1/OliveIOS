@@ -29,11 +29,7 @@ struct PreferencesView: View {
 
         ZStack {
 
-            Color(
-                red: 0.97,
-                green: 0.96,
-                blue: 0.94
-            )
+            OliveTheme.onboardingBackground
             .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 24) {
@@ -47,13 +43,7 @@ struct PreferencesView: View {
                         .foregroundStyle(.secondary)
 
                     ProgressView(value: 0.6)
-                        .tint(
-                            Color(
-                                red: 0.42,
-                                green: 0.58,
-                                blue: 0.46
-                            )
-                        )
+                        .tint(OliveTheme.primaryGreen)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -61,6 +51,7 @@ struct PreferencesView: View {
                     Text("Dietary Preferences")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .foregroundStyle(OliveTheme.navyText)
 
                     Text("Tell Olive how you prefer to eat.")
                         .foregroundStyle(.secondary)

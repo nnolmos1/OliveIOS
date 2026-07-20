@@ -1,6 +1,6 @@
 import Foundation
 
-enum UserGoal: String, CaseIterable, Identifiable, Hashable {
+enum UserGoal: String, CaseIterable, Codable, Identifiable, Hashable {
 
     case avoidTriggers = "Avoid foods that trigger my condition"
     case safeRestaurants = "Find safe restaurant options"

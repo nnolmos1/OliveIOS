@@ -1,6 +1,6 @@
 import Foundation
 
-enum MedicalCondition: String, CaseIterable, Identifiable {
+enum MedicalCondition: String, CaseIterable, Codable, Identifiable {
 
     case diabetes = "Type 2 Diabetes"
     case hypertension = "Hypertension"

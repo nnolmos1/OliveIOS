@@ -1,6 +1,6 @@
 import Foundation
 
-enum DietaryPreference: String, CaseIterable, Identifiable, Hashable {
+enum DietaryPreference: String, CaseIterable, Codable, Identifiable, Hashable {
 
     case vegetarian = "Vegetarian"
     case vegan = "Vegan"

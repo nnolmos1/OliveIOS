@@ -9,6 +9,8 @@ import SwiftUI
 
 struct OnboardingCompleteView: View {
     
+    @EnvironmentObject private var onboardingVM: OnboardingViewModel
+
     @AppStorage("hasCompletedOnboarding")
     private var hasCompletedOnboarding = false
 
@@ -18,16 +20,8 @@ struct OnboardingCompleteView: View {
 
             LinearGradient(
                 colors: [
-                    Color(
-                        red: 0.97,
-                        green: 0.96,
-                        blue: 0.94
-                    ),
-                    Color(
-                        red: 0.92,
-                        green: 0.95,
-                        blue: 0.92
-                    )
+                    OliveTheme.onboardingBackground,
+                    OliveTheme.onboardingGradientEnd
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -40,19 +34,14 @@ struct OnboardingCompleteView: View {
 
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 90))
-                    .foregroundStyle(
-                        Color(
-                            red: 0.42,
-                            green: 0.58,
-                            blue: 0.46
-                        )
-                    )
+                    .foregroundStyle(OliveTheme.primaryGreen)
 
                 VStack(spacing: 12) {
 
                     Text("You're All Set 🎉")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .foregroundStyle(OliveTheme.navyText)
 
                     Text("Olive is now personalized to your needs.")
                         .foregroundStyle(.secondary)
@@ -66,6 +55,7 @@ struct OnboardingCompleteView: View {
 
                 Button {
 
+                    onboardingVM.saveProfile()
                     hasCompletedOnboarding = true
 
                 } label: {
@@ -87,5 +77,6 @@ struct OnboardingCompleteView: View {
 #Preview {
     NavigationStack {
         OnboardingCompleteView()
+            .environmentObject(OnboardingViewModel())
     }
 }

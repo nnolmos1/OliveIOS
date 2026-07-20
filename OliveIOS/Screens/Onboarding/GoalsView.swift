@@ -16,11 +16,7 @@ struct GoalsView: View {
 
         ZStack {
 
-            Color(
-                red: 0.97,
-                green: 0.96,
-                blue: 0.94
-            )
+            OliveTheme.onboardingBackground
             .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 24) {
@@ -34,13 +30,7 @@ struct GoalsView: View {
                         .foregroundStyle(.secondary)
 
                     ProgressView(value: 0.8)
-                        .tint(
-                            Color(
-                                red: 0.42,
-                                green: 0.58,
-                                blue: 0.46
-                            )
-                        )
+                        .tint(OliveTheme.primaryGreen)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -48,6 +38,7 @@ struct GoalsView: View {
                     Text("Your Primary Goal")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .foregroundStyle(OliveTheme.navyText)
 
                     Text("What would you like Olive to help with most?")
                         .foregroundStyle(.secondary)

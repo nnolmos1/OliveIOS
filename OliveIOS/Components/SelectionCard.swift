@@ -29,11 +29,7 @@ struct SelectionCard: View {
             .foregroundStyle(
                 isSelected
                 ? .white
-                : Color(
-                    red: 0.15,
-                    green: 0.23,
-                    blue: 0.35
-                )
+                : OliveTheme.deepOlive
             )
             .padding()
             .frame(maxWidth: .infinity)
@@ -42,11 +38,7 @@ struct SelectionCard: View {
                 RoundedRectangle(cornerRadius: 18)
                     .fill(
                         isSelected
-                        ? Color(
-                            red: 0.42,
-                            green: 0.58,
-                            blue: 0.46
-                        )
+                        ? OliveTheme.primaryGreen
                         : .white
                     )
             }

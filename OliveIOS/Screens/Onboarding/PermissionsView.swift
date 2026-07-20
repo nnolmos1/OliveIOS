@@ -19,11 +19,7 @@ struct PermissionsView: View {
 
         ZStack {
 
-            Color(
-                red: 0.97,
-                green: 0.96,
-                blue: 0.94
-            )
+            OliveTheme.onboardingBackground
             .ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 24) {
@@ -37,13 +33,7 @@ struct PermissionsView: View {
                         .foregroundStyle(.secondary)
 
                     ProgressView(value: 1.0)
-                        .tint(
-                            Color(
-                                red: 0.42,
-                                green: 0.58,
-                                blue: 0.46
-                            )
-                        )
+                        .tint(OliveTheme.primaryGreen)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -51,6 +41,7 @@ struct PermissionsView: View {
                     Text("Enable Olive")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .foregroundStyle(OliveTheme.navyText)
 
                     Text("Help Olive provide personalized recommendations and menu scanning.")
                         .foregroundStyle(.secondary)

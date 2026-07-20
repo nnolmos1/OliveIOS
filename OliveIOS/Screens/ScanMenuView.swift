@@ -76,7 +76,7 @@ struct ScanMenuView: View {
             }
         }
         .background(
-            Color(red: 0.92, green: 0.88, blue: 0.79)
+            OliveTheme.warmBackground
                 .ignoresSafeArea()
         )
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: showScanResults)
@@ -460,7 +460,7 @@ struct ScanMenuView: View {
                 .padding(.vertical, 14)
                 .background(
                     Capsule()
-                        .fill(Color.black)
+                        .fill(OliveTheme.primaryGreen)
                 )
             }
 
@@ -513,7 +513,7 @@ struct ScanMenuView: View {
                                     in: .whitespacesAndNewlines
                                 ).isEmpty
                                 ? Color.gray
-                                : Color.black
+                                : OliveTheme.primaryGreen
                             )
                     )
             }
@@ -640,7 +640,7 @@ private extension ScanMenuView {
                     .padding(.vertical, 15)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(red: 0.15, green: 0.23, blue: 0.35))
+                            .fill(OliveTheme.primaryGreen)
                     )
             }
             .padding(.horizontal, 18)

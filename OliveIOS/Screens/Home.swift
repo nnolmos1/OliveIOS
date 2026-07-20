@@ -9,10 +9,10 @@ import SwiftUI
 
 struct Home: View {
 
-    private let oliveGreen = Color(red: 0.20, green: 0.39, blue: 0.21)
-    private let deepOlive = Color(red: 0.11, green: 0.20, blue: 0.13)
-    private let warmBackground = Color(red: 0.95, green: 0.93, blue: 0.86)
-    private let cardBackground = Color.white.opacity(0.88)
+    private let oliveGreen = OliveTheme.primaryGreen
+    private let deepOlive = OliveTheme.deepOlive
+    private let warmBackground = OliveTheme.warmBackground
+    private let cardBackground = OliveTheme.cardBackground
 
     var body: some View {
         NavigationStack {

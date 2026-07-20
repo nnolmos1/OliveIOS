@@ -1,6 +1,14 @@
 import Foundation
 
-struct UserProfile {
+struct UserProfile: Codable {
+
+    var fullName = ""
+
+    var birthday = Date()
+
+    var email = ""
+
+    var phoneNumber = ""
 
     var conditions: Set<MedicalCondition> = []
 

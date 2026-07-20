@@ -1,6 +1,6 @@
 import Foundation
 
-enum FoodAllergy: String, CaseIterable, Identifiable, Hashable {
+enum FoodAllergy: String, CaseIterable, Codable, Identifiable, Hashable {
 
     case peanuts = "Peanuts"
     case treeNuts = "Tree Nuts"

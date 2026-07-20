@@ -11,7 +11,11 @@ import Combine
 
 final class OnboardingViewModel: ObservableObject {
 
-    @Published var userProfile = UserProfile()
+    @Published var userProfile: UserProfile
+
+    init() {
+        userProfile = UserProfileStorage.load()
+    }
 
     // MARK: - Conditions
 
@@ -22,6 +26,8 @@ final class OnboardingViewModel: ObservableObject {
         } else {
             userProfile.conditions.insert(condition)
         }
+
+        saveProfile()
     }
 
     func hasCondition(_ condition: MedicalCondition) -> Bool {
@@ -37,6 +43,8 @@ final class OnboardingViewModel: ObservableObject {
         } else {
             userProfile.allergies.insert(allergy)
         }
+
+        saveProfile()
     }
 
     func hasAllergy(_ allergy: FoodAllergy) -> Bool {
@@ -52,6 +60,8 @@ final class OnboardingViewModel: ObservableObject {
         } else {
             userProfile.dietaryPreferences.insert(preference)
         }
+
+        saveProfile()
     }
 
     func hasPreference(_ preference: DietaryPreference) -> Bool {
@@ -62,6 +72,7 @@ final class OnboardingViewModel: ObservableObject {
 
     func setGoal(_ goal: UserGoal) {
         userProfile.goal = goal
+        saveProfile()
     }
 
     func hasGoal(_ goal: UserGoal) -> Bool {
@@ -71,9 +82,15 @@ final class OnboardingViewModel: ObservableObject {
     // MARK: - Permissions
     func setLocationPermission(_ granted: Bool) {
         userProfile.hasGrantedLocationPermission = granted
+        saveProfile()
     }
 
     func setCameraPermission(_ granted: Bool) {
         userProfile.hasGrantedCameraPermission = granted
+        saveProfile()
+    }
+
+    func saveProfile() {
+        UserProfileStorage.save(userProfile)
     }
 }

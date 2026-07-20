@@ -11,8 +11,8 @@ struct WelcomeView: View {
             // Background
             LinearGradient(
                 colors: [
-                    Color(red: 0.97, green: 0.96, blue: 0.94),
-                    Color(red: 0.92, green: 0.95, blue: 0.92)
+                    OliveTheme.onboardingBackground,
+                    OliveTheme.onboardingGradientEnd
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -30,8 +30,8 @@ struct WelcomeView: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.42, green: 0.58, blue: 0.46),
-                                    Color(red: 0.34, green: 0.49, blue: 0.39)
+                                    OliveTheme.primaryGreen,
+                                    OliveTheme.deepOlive
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -51,9 +51,7 @@ struct WelcomeView: View {
 
                     Text("Welcome to Olive")
                         .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(
-                            Color(red: 0.15, green: 0.23, blue: 0.35)
-                        )
+                        .foregroundStyle(OliveTheme.navyText)
 
                     Text("Making nutrition accessible through personalized AI guidance.")
                         .font(.body)
