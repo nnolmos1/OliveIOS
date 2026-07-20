@@ -22,6 +22,12 @@ struct ScanMenuView: View {
 
     @StateObject private var cameraManager = CameraManager()
 
+    @State private var isAnalyzing = false
+    @State private var recognizedMenuText = ""
+    @State private var analysisResult: MenuAnalysisResult?
+    @State private var analysisError: String?
+    private let visionManager = VisionManager()
+    private let menuAnalysisService = MenuAnalysisService()
     @State private var selectedMode: ScannerMode = .scan
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var uploadedImage: UIImage?
@@ -74,9 +80,15 @@ struct ScanMenuView: View {
                             .combined(with: .opacity)
                     )
             }
+
+            if isAnalyzing {
+                analyzingOverlay
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
         }
         .background(
-            OliveTheme.warmBackground
+            Color(red: 0.92, green: 0.88, blue: 0.79)
                 .ignoresSafeArea()
         )
         .animation(.spring(response: 0.32, dampingFraction: 0.86), value: showScanResults)
@@ -100,6 +112,23 @@ struct ScanMenuView: View {
         .onChange(of: selectedPhotoItem) { _, newItem in
             guard let newItem else { return }
             loadPhoto(from: newItem)
+        }
+        .alert(
+            "Unable to Read Menu",
+            isPresented: Binding(
+                get: { analysisError != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        analysisError = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                analysisError = nil
+            }
+        } message: {
+            Text(analysisError ?? "Please try another photo.")
         }
     }
 
@@ -307,6 +336,7 @@ struct ScanMenuView: View {
 
                 Button {
                     if usesDemoMenu {
+                        analysisResult = demoAnalysisResult
                         showScanResults = true
                     } else {
                         cameraManager.capturePhoto()
@@ -359,17 +389,13 @@ struct ScanMenuView: View {
                     )
 
                     uploadedImage = croppedImage
-                    cameraManager.capturedImage = croppedImage
-
-                    UIImpactFeedbackGenerator(style: .light)
-                        .impactOccurred()
-
-                    showScanResults = true
+                    analyzeMenuImage(croppedImage)
                 } label: {
                     Label("Use Photo", systemImage: "checkmark")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(ScannerActionButtonStyle(filled: true))
+                .disabled(isAnalyzing)
             }
             .padding(18)
             .background(
@@ -460,8 +486,25 @@ struct ScanMenuView: View {
                 .padding(.vertical, 14)
                 .background(
                     Capsule()
-                        .fill(OliveTheme.primaryGreen)
+                        .fill(Color.black)
                 )
+            }
+
+            if let uploadedImage {
+                Button {
+                    analyzeMenuImage(uploadedImage)
+                } label: {
+                    Label("Analyze Menu", systemImage: "text.viewfinder")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.black)
+                        )
+                }
+                .disabled(isAnalyzing)
             }
 
             Spacer()
@@ -497,9 +540,7 @@ struct ScanMenuView: View {
                 }
 
             Button {
-                /*
-                 Send `pastedMenuText` to your menu parser here.
-                 */
+                analyzeMenuText(pastedMenuText)
             } label: {
                 Text("Analyze Menu")
                     .font(.headline)
@@ -513,7 +554,7 @@ struct ScanMenuView: View {
                                     in: .whitespacesAndNewlines
                                 ).isEmpty
                                 ? Color.gray
-                                : OliveTheme.primaryGreen
+                                : Color.black
                             )
                     )
             }
@@ -522,6 +563,100 @@ struct ScanMenuView: View {
                     in: .whitespacesAndNewlines
                 ).isEmpty
             )
+        }
+    }
+
+    // MARK: - Analysis
+
+    private var analyzingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.48)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
+
+                Text("Reading menu...")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 22)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.black.opacity(0.82))
+            )
+        }
+        .allowsHitTesting(true)
+    }
+
+    private func analyzeMenuImage(_ image: UIImage) {
+        isAnalyzing = true
+        analysisError = nil
+        analysisResult = nil
+
+        Task {
+            do {
+                let menuText = try await visionManager.recognizeText(in: image)
+                let cleanedText = menuText.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+
+                guard !cleanedText.isEmpty else {
+                    throw MenuAnalysisError.emptyMenuText
+                }
+
+                let result = try await menuAnalysisService.analyze(
+                    menuText: cleanedText
+                )
+
+                await MainActor.run {
+                    recognizedMenuText = cleanedText
+                    analysisResult = result
+                    isAnalyzing = false
+                    showScanResults = true
+                }
+            } catch {
+                await MainActor.run {
+                    isAnalyzing = false
+                    analysisError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func analyzeMenuText(_ text: String) {
+        let cleanedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !cleanedText.isEmpty else {
+            analysisError = "Paste some menu text before analyzing."
+            return
+        }
+
+        isAnalyzing = true
+        analysisError = nil
+        analysisResult = nil
+
+        Task {
+            do {
+                let result = try await menuAnalysisService.analyze(
+                    menuText: cleanedText
+                )
+
+                await MainActor.run {
+                    recognizedMenuText = cleanedText
+                    analysisResult = result
+                    isAnalyzing = false
+                    showScanResults = true
+                }
+            } catch {
+                await MainActor.run {
+                    isAnalyzing = false
+                    analysisError = error.localizedDescription
+                }
+            }
         }
     }
 
@@ -606,7 +741,7 @@ private extension ScanMenuView {
                         subtitle: "Good matches for your profile.",
                         systemImage: "checkmark.circle.fill",
                         tint: Color(red: 0.35, green: 0.48, blue: 0.38),
-                        items: safeMenuItems
+                        items: analysisResult?.safe ?? demoAnalysisResult.safe
                     )
 
                     resultGroup(
@@ -614,7 +749,7 @@ private extension ScanMenuView {
                         subtitle: "Likely okay with a small adjustment.",
                         systemImage: "exclamationmark.circle.fill",
                         tint: Color(red: 0.67, green: 0.54, blue: 0.26),
-                        items: cautionMenuItems
+                        items: analysisResult?.caution ?? demoAnalysisResult.caution
                     )
 
                     resultGroup(
@@ -622,7 +757,7 @@ private extension ScanMenuView {
                         subtitle: "Not a fit for your current restrictions.",
                         systemImage: "xmark.circle.fill",
                         tint: Color(red: 0.56, green: 0.34, blue: 0.32),
-                        items: avoidMenuItems
+                        items: analysisResult?.avoid ?? demoAnalysisResult.avoid
                     )
                 }
                 .padding(.horizontal, 14)
@@ -640,7 +775,7 @@ private extension ScanMenuView {
                     .padding(.vertical, 15)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(OliveTheme.primaryGreen)
+                            .fill(Color(red: 0.15, green: 0.23, blue: 0.35))
                     )
             }
             .padding(.horizontal, 18)
@@ -676,7 +811,7 @@ private extension ScanMenuView {
         subtitle: String,
         systemImage: String,
         tint: Color,
-        items: [ScannedMenuItem]
+        items: [AnalyzedMenuItem]
     ) -> some View {
         DisclosureGroup {
             VStack(spacing: 10) {
@@ -713,7 +848,7 @@ private extension ScanMenuView {
         .tint(.primary)
     }
 
-    func resultItemRow(_ item: ScannedMenuItem) -> some View {
+    func resultItemRow(_ item: AnalyzedMenuItem) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(item.name)
@@ -745,52 +880,41 @@ private extension ScanMenuView {
         )
     }
 
-    var safeMenuItems: [ScannedMenuItem] {
-        [
-            ScannedMenuItem(
-                name: "Herb Salmon Plate",
-                tag: "Protein",
-                explanation: "Lean protein with no listed peanut ingredients. Ask for sauce on the side to keep sodium lower."
-            ),
-            ScannedMenuItem(
-                name: "Steamed Broccoli",
-                tag: "Low carb",
-                explanation: "A vegetable side that supports blood sugar goals and is usually lower in sodium."
-            )
-        ]
+    var demoAnalysisResult: MenuAnalysisResult {
+        MenuAnalysisResult(
+            safe: [
+                AnalyzedMenuItem(
+                    name: "Herb Salmon Plate",
+                    tag: "Protein",
+                    explanation: "Lean protein with no listed peanut ingredients. Ask for sauce on the side to keep sodium lower."
+                ),
+                AnalyzedMenuItem(
+                    name: "Steamed Broccoli",
+                    tag: "Low carb",
+                    explanation: "A vegetable side that supports blood sugar goals and is usually lower in sodium."
+                )
+            ],
+            caution: [
+                AnalyzedMenuItem(
+                    name: "Grilled Chicken Alfredo",
+                    tag: "High carb",
+                    explanation: "Pasta can raise blood sugar. Consider a half portion or pair it with extra vegetables."
+                ),
+                AnalyzedMenuItem(
+                    name: "Tomato Soup",
+                    tag: "Sodium",
+                    explanation: "Soups are often high in sodium, which matters for hypertension. Ask if a low-sodium option is available."
+                )
+            ],
+            avoid: [
+                AnalyzedMenuItem(
+                    name: "Peanut Stir Fry",
+                    tag: "Allergen",
+                    explanation: "Contains peanuts, which conflicts with your peanut allergy. Choose a different entree."
+                )
+            ]
+        )
     }
-
-    var cautionMenuItems: [ScannedMenuItem] {
-        [
-            ScannedMenuItem(
-                name: "Grilled Chicken Alfredo",
-                tag: "High carb",
-                explanation: "Pasta can raise blood sugar. Consider a half portion or pair it with extra vegetables."
-            ),
-            ScannedMenuItem(
-                name: "Tomato Soup",
-                tag: "Sodium",
-                explanation: "Soups are often high in sodium, which matters for hypertension. Ask if a low-sodium option is available."
-            )
-        ]
-    }
-
-    var avoidMenuItems: [ScannedMenuItem] {
-        [
-            ScannedMenuItem(
-                name: "Peanut Stir Fry",
-                tag: "Allergen",
-                explanation: "Contains peanuts, which conflicts with your peanut allergy. Choose a different entree."
-            )
-        ]
-    }
-}
-
-private struct ScannedMenuItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let tag: String
-    let explanation: String
 }
 
 // MARK: - Resizable Scan Frame
