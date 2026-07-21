@@ -12,7 +12,7 @@ struct Explore: View {
     @State private var profile = UserProfileStorage.load()
     @State private var searchText = ""
 
-    private let restaurants = ExploreRestaurant.demoRestaurants
+    private let restaurants = ExploreRestaurant.uicInnovationCenterRestaurants
     private let oliveGreen = OliveTheme.primaryGreen
     private let deepOlive = OliveTheme.deepOlive
     private let warmBackground = OliveTheme.warmBackground
@@ -21,15 +21,23 @@ struct Explore: View {
     private var filteredRestaurants: [ExploreRestaurant] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !query.isEmpty else {
-            return restaurants
+        let rankedRestaurants = restaurants.sorted {
+            $0.fitScore(for: profile) > $1.fitScore(for: profile)
         }
 
-        return restaurants.filter { restaurant in
+        guard !query.isEmpty else {
+            return rankedRestaurants
+        }
+
+        return rankedRestaurants.filter { restaurant in
             restaurant.name.localizedCaseInsensitiveContains(query)
             || restaurant.cuisine.localizedCaseInsensitiveContains(query)
             || restaurant.tags.contains {
                 $0.localizedCaseInsensitiveContains(query)
+            }
+            || restaurant.recommendedOptions.contains {
+                $0.name.localizedCaseInsensitiveContains(query)
+                || $0.summary.localizedCaseInsensitiveContains(query)
             }
         }
     }
@@ -40,7 +48,6 @@ struct Explore: View {
                 VStack(alignment: .leading, spacing: 18) {
                     headerSection
                     searchSection
-                    personalizedSummary
                     recommendationSection
                 }
                 .padding(.horizontal, 18)
@@ -72,8 +79,8 @@ struct Explore: View {
                         .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(deepOlive)
 
-                    Text("Nearby picks matched to your profile.")
-                        .font(.system(size: 14))
+                    Text("Near UIC Innovation Center")
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(deepOlive.opacity(0.72))
                 }
 
@@ -115,37 +122,6 @@ struct Explore: View {
         }
     }
 
-    private var personalizedSummary: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Personalized For")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(deepOlive)
-
-            FlowLayout(spacing: 8) {
-                ForEach(profileSummaryTags, id: \.self) { tag in
-                    Text(tag)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(deepOlive)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule()
-                                .fill(Color.white.opacity(0.74))
-                        )
-                }
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(cardBackground)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(OliveTheme.subtleBorder, lineWidth: 1)
-        }
-    }
 
     private var recommendationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -193,10 +169,10 @@ struct Explore: View {
 
                 Spacer()
 
-                fitBadge(score: restaurant.fitScore)
+                fitBadge(score: restaurant.fitScore(for: profile))
             }
 
-            Text(restaurant.shortDescription)
+            Text(restaurant.profileSummary(for: profile))
                 .font(.system(size: 13))
                 .foregroundStyle(deepOlive.opacity(0.72))
                 .fixedSize(horizontal: false, vertical: true)
@@ -249,27 +225,6 @@ struct Explore: View {
         )
     }
 
-    private var profileSummaryTags: [String] {
-        var tags: [String] = []
-
-        tags.append(contentsOf: profile.conditions.map(\.rawValue).sorted())
-        tags.append(contentsOf: profile.allergies.map(\.rawValue).sorted())
-        tags.append(contentsOf: profile.dietaryPreferences.map(\.rawValue).sorted())
-
-        if let goal = profile.goal {
-            tags.append(goal.rawValue)
-        }
-
-        if tags.isEmpty {
-            return [
-                "Low Sodium",
-                "Diabetes Friendly",
-                "Peanut Aware"
-            ]
-        }
-
-        return Array(tags.prefix(5))
-    }
 }
 
 private struct RestaurantDetailView: View {
@@ -389,11 +344,11 @@ private struct RestaurantDetailView: View {
 
     private var recommendedMenuSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Top Recommended Menu Options")
+            Text("Safer Menu Options")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(deepOlive)
 
-            ForEach(restaurant.recommendedOptions) { option in
+            ForEach(restaurant.recommendedOptions.sortedByFit(for: profile)) { option in
                 menuOptionCard(option)
             }
         }
@@ -485,7 +440,7 @@ private struct RestaurantDetailView: View {
                 }
             }
 
-            Text(option.personalizedReason)
+            Text(option.reason(for: profile))
                 .font(.system(size: 12))
                 .foregroundStyle(deepOlive.opacity(0.72))
                 .padding(12)
@@ -622,6 +577,10 @@ private struct RestaurantMenuOption: Identifiable, Hashable {
     let summary: String
     let personalizedReason: String
     let level: RecommendationLevel
+    var supportsConditions: Set<MedicalCondition> = []
+    var avoidsAllergies: Set<FoodAllergy> = []
+    var supportsPreferences: Set<DietaryPreference> = []
+    var supportsGoals: Set<UserGoal> = []
 }
 
 private enum RecommendationLevel: Hashable {
@@ -650,92 +609,315 @@ private enum RecommendationLevel: Hashable {
 }
 
 private extension ExploreRestaurant {
-    static let demoRestaurants: [ExploreRestaurant] = [
+    func fitScore(for profile: UserProfile) -> Int {
+        let optionBoost = recommendedOptions
+            .map { $0.fitScore(for: profile) }
+            .max() ?? 0
+
+        return min(99, fitScore + optionBoost)
+    }
+
+    func profileSummary(for profile: UserProfile) -> String {
+        guard let topOption = recommendedOptions.sortedByFit(for: profile).first else {
+            return shortDescription
+        }
+
+        let matches = topOption.matchingReasons(for: profile)
+
+        guard !matches.isEmpty else {
+            return shortDescription
+        }
+
+        return "\(topOption.name) stands out here: \(matches.joined(separator: " "))"
+    }
+}
+
+private extension RestaurantMenuOption {
+    func fitScore(for profile: UserProfile) -> Int {
+        matchingReasons(for: profile).count * 3
+    }
+
+    func reason(for profile: UserProfile) -> String {
+        let matches = matchingReasons(for: profile)
+
+        guard !matches.isEmpty else {
+            return personalizedReason
+        }
+
+        return "\(personalizedReason) Olive matched this to your profile because \(matches.joined(separator: " "))"
+    }
+
+    func matchingReasons(for profile: UserProfile) -> [String] {
+        var reasons: [String] = []
+
+        let conditionMatches = supportsConditions.intersection(profile.conditions)
+        if !conditionMatches.isEmpty {
+            reasons.append("it supports \(conditionMatches.sortedLabels).")
+        }
+
+        let allergyMatches = avoidsAllergies.intersection(profile.allergies)
+        if !allergyMatches.isEmpty {
+            reasons.append("it is easier to order around \(allergyMatches.sortedLabels).")
+        }
+
+        let preferenceMatches = supportsPreferences.intersection(profile.dietaryPreferences)
+        if !preferenceMatches.isEmpty {
+            reasons.append("it fits \(preferenceMatches.sortedLabels).")
+        }
+
+        if let goal = profile.goal, supportsGoals.contains(goal) {
+            reasons.append("it helps with \(goal.rawValue.lowercased()).")
+        }
+
+        return reasons
+    }
+}
+
+private extension Array where Element == RestaurantMenuOption {
+    func sortedByFit(for profile: UserProfile) -> [RestaurantMenuOption] {
+        sorted {
+            $0.fitScore(for: profile) > $1.fitScore(for: profile)
+        }
+    }
+}
+
+private extension Set where Element: RawRepresentable, Element.RawValue == String {
+    var sortedLabels: String {
+        map(\.rawValue)
+            .sorted()
+            .joined(separator: ", ")
+            .lowercased()
+    }
+}
+
+private extension ExploreRestaurant {
+    static let uicInnovationCenterRestaurants: [ExploreRestaurant] = [
         ExploreRestaurant(
-            name: "Green Leaf Cafe",
-            cuisine: "Salads, Bowls",
-            distance: "0.3",
+            name: "Stax Cafe",
+            cuisine: "Breakfast, Brunch",
+            distance: "0.5",
             priceLevel: "$$",
-            fitScore: 92,
-            icon: "leaf.fill",
-            tags: ["Low Sodium", "Diabetes Friendly", "Peanut Aware"],
-            shortDescription: "Fresh bowls with plenty of vegetable-forward options and flexible dressings.",
-            longDescription: "Green Leaf Cafe is a fast casual spot focused on grain bowls, salads, and lean proteins. Most dishes can be customized with sauces on the side and extra vegetables.",
+            fitScore: 86,
+            icon: "sunrise.fill",
+            tags: ["High Protein", "Vegetarian", "Customizable"],
+            shortDescription: "A nearby breakfast and brunch spot where eggs, oatmeal, and vegetable sides make profile-aware ordering easier.",
+            longDescription: "Stax Cafe is a practical UIC-area option for breakfast and lunch because many plates can be built around eggs, vegetables, fruit, and simple sides. For allergies, ask the kitchen about shared griddles and cross-contact.",
             recommendedOptions: [
                 RestaurantMenuOption(
-                    name: "Grilled Salmon Greens Bowl",
-                    price: "$15.50",
-                    summary: "Salmon, greens, cucumber, avocado, herbs, and lemon vinaigrette.",
-                    personalizedReason: "A strong option for blood sugar goals because it is protein-forward and lower in refined carbs. Ask for dressing on the side to manage sodium.",
-                    level: .safe
+                    name: "Veggie Egg White Omelet",
+                    price: "Varies",
+                    summary: "Egg whites with vegetables, fruit on the side, and toast skipped or kept small.",
+                    personalizedReason: "Protein and vegetables make this a steady option. Ask for light salt and choose fruit instead of fried sides.",
+                    level: .safe,
+                    supportsConditions: [.diabetes, .hypertension, .cholesterol, .heartDisease],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian, .lowCarb, .lowSodium],
+                    supportsGoals: [.safeRestaurants, .improveHealth, .understandNutrition]
                 ),
                 RestaurantMenuOption(
-                    name: "Chicken Harvest Salad",
-                    price: "$13.75",
-                    summary: "Grilled chicken, mixed greens, roasted vegetables, apple, and seeds.",
-                    personalizedReason: "Balanced protein and fiber. Confirm seed toppings if you have cross-contact concerns with nut or peanut allergens.",
-                    level: .safe
+                    name: "Steel-Cut Oatmeal Bowl",
+                    price: "Varies",
+                    summary: "Oatmeal with berries or banana, nuts left off when needed, and sweetener on the side.",
+                    personalizedReason: "A fiber-forward choice that can work well for cholesterol and blood sugar goals when toppings are controlled.",
+                    level: .safe,
+                    supportsConditions: [.diabetes, .cholesterol, .heartDisease, .ibs],
+                    avoidsAllergies: [.eggs, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian, .dairyFree],
+                    supportsGoals: [.improveHealth, .understandNutrition]
                 ),
                 RestaurantMenuOption(
-                    name: "Tomato Basil Soup",
-                    price: "$6.25",
-                    summary: "House tomato soup with basil and olive oil.",
-                    personalizedReason: "Soups can run high in sodium, so this is better as a small side or with sodium details confirmed.",
-                    level: .caution
+                    name: "Avocado Toast With Egg",
+                    price: "Varies",
+                    summary: "Avocado toast with egg and greens, ordered with sauce or seasoning on the side.",
+                    personalizedReason: "This can be balanced, but bread and seasoning make it worth checking for wheat, sodium, and carb targets.",
+                    level: .caution,
+                    supportsConditions: [.cholesterol],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian],
+                    supportsGoals: [.safeRestaurants]
                 )
             ]
         ),
         ExploreRestaurant(
-            name: "Fresh & Co.",
-            cuisine: "Wraps, Bowls",
+            name: "Pompei Taylor Street",
+            cuisine: "Italian, Casual",
             distance: "0.6",
             priceLevel: "$$",
-            fitScore: 88,
+            fitScore: 82,
             icon: "fork.knife",
-            tags: ["High Fiber", "Customizable", "Low Carb"],
-            shortDescription: "Build-your-own meals make it easier to avoid allergens and adjust carbs.",
-            longDescription: "Fresh & Co. offers wraps, bowls, soups, and salads with clear ingredient choices. It is a practical fit when you want control over sauces, grains, and toppings.",
+            tags: ["Customizable", "Vegetarian", "Dairy Optional"],
+            shortDescription: "A casual Taylor Street Italian option where salads, tomato-based dishes, and portion choices can make ordering more flexible.",
+            longDescription: "Pompei Taylor Street gives the MVP a familiar nearby option with Italian staples. Olive prioritizes tomato-based, vegetable-forward, and sauce-on-the-side orders instead of richer cream sauces or oversized portions.",
             recommendedOptions: [
                 RestaurantMenuOption(
-                    name: "Turkey Lettuce Wrap",
-                    price: "$12.25",
-                    summary: "Turkey, romaine, tomato, cucumber, avocado, and mustard vinaigrette.",
-                    personalizedReason: "Lower in refined carbs than a traditional wrap and easy to keep sauces separate.",
-                    level: .safe
+                    name: "Grilled Chicken Salad",
+                    price: "Varies",
+                    summary: "Greens, grilled chicken, vegetables, and dressing on the side.",
+                    personalizedReason: "A leaner Italian-restaurant order that keeps protein high and makes sodium easier to manage.",
+                    level: .safe,
+                    supportsConditions: [.diabetes, .hypertension, .cholesterol, .heartDisease],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.lowCarb, .lowSodium],
+                    supportsGoals: [.safeRestaurants, .improveHealth]
                 ),
                 RestaurantMenuOption(
-                    name: "Chicken Quinoa Bowl",
-                    price: "$14.25",
-                    summary: "Chicken, quinoa, greens, peppers, and herb yogurt sauce.",
-                    personalizedReason: "Quinoa adds carbs, but the protein and fiber make it a reasonable choice with portion awareness.",
-                    level: .caution
+                    name: "Vegetable Marinara Pasta",
+                    price: "Varies",
+                    summary: "Tomato-based pasta with vegetables, half portion if available, and cheese optional.",
+                    personalizedReason: "Tomato sauce is usually lighter than cream sauce, but pasta portions and sodium still need attention.",
+                    level: .caution,
+                    supportsConditions: [.cholesterol],
+                    avoidsAllergies: [.peanuts, .treeNuts, .eggs, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian, .dairyFree],
+                    supportsGoals: [.understandNutrition]
+                ),
+                RestaurantMenuOption(
+                    name: "Side Salad With Minestrone",
+                    price: "Varies",
+                    summary: "A smaller soup-and-salad order with dressing and cheese controlled.",
+                    personalizedReason: "This can be lighter than a full pasta entree, but soup sodium can be high. Ask about broth and salt.",
+                    level: .caution,
+                    supportsConditions: [.cholesterol, .heartDisease],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian],
+                    supportsGoals: [.safeRestaurants]
                 )
             ]
         ),
         ExploreRestaurant(
-            name: "The Wholesome Table",
-            cuisine: "Healthy, Organic",
-            distance: "0.7",
+            name: "Rosebud Taylor Street",
+            cuisine: "Italian",
+            distance: "0.6",
             priceLevel: "$$$",
-            fitScore: 85,
-            icon: "carrot.fill",
-            tags: ["Organic", "Vegetarian", "Low Sodium"],
-            shortDescription: "A quieter sit-down option with lighter plates and vegetable sides.",
-            longDescription: "The Wholesome Table focuses on seasonal produce, lean proteins, and simple preparations. It has several dishes that can be adjusted for sodium and carb goals.",
+            fitScore: 79,
+            icon: "leaf.circle.fill",
+            tags: ["Lean Protein", "Seafood", "Sauce Control"],
+            shortDescription: "A sit-down Little Italy option where grilled proteins and vegetable sides are the safest first pass.",
+            longDescription: "Rosebud Taylor Street is a neighborhood Italian restaurant near UIC. Olive steers users toward grilled proteins, red sauces, and vegetable sides while flagging cream sauces, fried items, and large pasta portions.",
             recommendedOptions: [
                 RestaurantMenuOption(
-                    name: "Herb Chicken Plate",
-                    price: "$18.00",
-                    summary: "Roasted chicken, greens, squash, and herb sauce.",
-                    personalizedReason: "A balanced meal with lean protein and vegetables. Ask for sauce on the side for better sodium control.",
-                    level: .safe
+                    name: "Grilled Fish With Vegetables",
+                    price: "Varies",
+                    summary: "Grilled fish with vegetables, lemon, and sauces served separately.",
+                    personalizedReason: "A strong choice for heart-health goals when sauces are controlled. Avoid this if fish is an allergy.",
+                    level: .safe,
+                    supportsConditions: [.hypertension, .cholesterol, .heartDisease, .diabetes],
+                    avoidsAllergies: [.peanuts, .treeNuts, .milk, .eggs, .soy, .wheat, .sesame],
+                    supportsPreferences: [.lowCarb, .lowSodium],
+                    supportsGoals: [.improveHealth, .understandNutrition]
                 ),
                 RestaurantMenuOption(
-                    name: "Lentil Vegetable Stew",
-                    price: "$12.50",
-                    summary: "Lentils, carrots, greens, tomato, and herbs.",
-                    personalizedReason: "High fiber is useful, but the sodium level may vary. Ask about broth or salt content before ordering.",
-                    level: .caution
+                    name: "Chicken Vesuvio, Light Potatoes",
+                    price: "Varies",
+                    summary: "Chicken with vegetables, lighter potatoes, and pan sauce on the side.",
+                    personalizedReason: "This keeps the meal protein-forward, but the pan sauce and potatoes need portion control.",
+                    level: .caution,
+                    supportsConditions: [.diabetes, .cholesterol],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.lowCarb],
+                    supportsGoals: [.safeRestaurants]
+                ),
+                RestaurantMenuOption(
+                    name: "Marinara Pasta, Half Portion",
+                    price: "Varies",
+                    summary: "Tomato-based pasta ordered as a smaller portion with cheese optional.",
+                    personalizedReason: "Better than cream sauce for many profiles, but it is still a carb-heavy order.",
+                    level: .caution,
+                    supportsConditions: [.cholesterol],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian, .dairyFree],
+                    supportsGoals: [.understandNutrition]
+                )
+            ]
+        ),
+        ExploreRestaurant(
+            name: "Tuscany on Taylor",
+            cuisine: "Tuscan, Italian",
+            distance: "0.8",
+            priceLevel: "$$$",
+            fitScore: 78,
+            icon: "wineglass.fill",
+            tags: ["Seafood", "Vegetarian", "Gluten-Free Caution"],
+            shortDescription: "A sit-down Taylor Street option where simple grilled entrees and vegetable sides are the easiest match.",
+            longDescription: "Tuscany on Taylor is a traditional Italian restaurant in the UIC area. For Olive, it works best when users choose simple grilled preparations and ask questions about pasta, dairy, and wheat.",
+            recommendedOptions: [
+                RestaurantMenuOption(
+                    name: "Grilled Salmon With Greens",
+                    price: "Varies",
+                    summary: "Grilled salmon, greens or vegetables, lemon, and sauce on the side.",
+                    personalizedReason: "Protein and vegetables make this one of the stronger fits, but fish allergies should avoid it.",
+                    level: .safe,
+                    supportsConditions: [.diabetes, .hypertension, .cholesterol, .heartDisease],
+                    avoidsAllergies: [.peanuts, .treeNuts, .milk, .eggs, .soy, .wheat],
+                    supportsPreferences: [.lowCarb, .lowSodium],
+                    supportsGoals: [.improveHealth, .safeRestaurants]
+                ),
+                RestaurantMenuOption(
+                    name: "Chicken Paillard",
+                    price: "Varies",
+                    summary: "Thin grilled chicken with arugula or vegetables and dressing on the side.",
+                    personalizedReason: "A lean, lower-carb order when breading is avoided and dressing is controlled.",
+                    level: .safe,
+                    supportsConditions: [.diabetes, .hypertension, .cholesterol, .heartDisease],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.lowCarb, .lowSodium],
+                    supportsGoals: [.safeRestaurants, .improveHealth]
+                ),
+                RestaurantMenuOption(
+                    name: "Vegetable Pasta With Red Sauce",
+                    price: "Varies",
+                    summary: "Vegetables with tomato sauce, smaller pasta portion, and cheese optional.",
+                    personalizedReason: "A workable vegetarian order, but wheat and carb load make it a caution item.",
+                    level: .caution,
+                    supportsConditions: [.cholesterol],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian, .dairyFree],
+                    supportsGoals: [.understandNutrition]
+                )
+            ]
+        ),
+        ExploreRestaurant(
+            name: "Sandella's Flatbread Cafe",
+            cuisine: "Flatbreads, Wraps",
+            distance: "0.8",
+            priceLevel: "$",
+            fitScore: 75,
+            icon: "takeoutbag.and.cup.and.straw.fill",
+            tags: ["Fast Casual", "Customizable", "Halal-Friendly Ask"],
+            shortDescription: "A campus dining option where wraps and bowls can be adjusted, but wheat and sauces need extra attention.",
+            longDescription: "Sandella's gives the MVP a campus-friendly fast-casual option. Olive treats it as a customizable stop where users should ask about wrap ingredients, sauces, and allergen handling.",
+            recommendedOptions: [
+                RestaurantMenuOption(
+                    name: "Grilled Chicken Salad Bowl",
+                    price: "Varies",
+                    summary: "Grilled chicken over greens with vegetables and dressing on the side.",
+                    personalizedReason: "This avoids the flatbread base and keeps the order protein-forward with more vegetables.",
+                    level: .safe,
+                    supportsConditions: [.diabetes, .hypertension, .cholesterol, .heartDisease],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsPreferences: [.lowCarb, .lowSodium],
+                    supportsGoals: [.safeRestaurants, .improveHealth]
+                ),
+                RestaurantMenuOption(
+                    name: "Vegetable Hummus Bowl",
+                    price: "Varies",
+                    summary: "Vegetables, hummus, greens, and sauce kept light.",
+                    personalizedReason: "Plant-forward and filling, but sesame and sodium can be issues because hummus often contains tahini.",
+                    level: .caution,
+                    supportsConditions: [.cholesterol, .heartDisease],
+                    avoidsAllergies: [.milk, .eggs, .fish, .shellfish],
+                    supportsPreferences: [.vegetarian, .vegan, .dairyFree],
+                    supportsGoals: [.improveHealth]
+                ),
+                RestaurantMenuOption(
+                    name: "Turkey Wrap, Sauce Light",
+                    price: "Varies",
+                    summary: "Turkey, vegetables, and light sauce in a wrap, with chips skipped.",
+                    personalizedReason: "A reasonable fast option, but the wrap adds wheat and carbs. Ask about sodium in deli meat.",
+                    level: .caution,
+                    supportsConditions: [.diabetes],
+                    avoidsAllergies: [.peanuts, .treeNuts, .fish, .shellfish],
+                    supportsGoals: [.safeRestaurants]
                 )
             ]
         )

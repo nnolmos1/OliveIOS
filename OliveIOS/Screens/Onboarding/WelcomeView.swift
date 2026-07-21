@@ -72,20 +72,11 @@ struct WelcomeView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
 
-                    Button {
-
-                        // Navigate to ConditionsView
-
+                    NavigationLink {
+                        ConditionsView()
                     } label: {
-
                         HStack {
-                            NavigationLink {
-                                ConditionsView()
-                            } label: {
-                                Text("Get Started")
-                            }
-                            .buttonStyle(OlivePrimaryButton())
-
+                            Text("Get Started")
                             Image(systemName: "arrow.right")
                         }
                         .fontWeight(.semibold)

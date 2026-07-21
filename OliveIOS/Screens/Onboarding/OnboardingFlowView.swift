@@ -19,6 +19,7 @@ struct OnboardingFlowView: View {
             WelcomeView()
         }
         .environmentObject(onboardingVM)
+        .background(OliveTheme.onboardingBackground.ignoresSafeArea())
     }
 }
 

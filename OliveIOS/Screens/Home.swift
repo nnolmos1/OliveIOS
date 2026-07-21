@@ -9,10 +9,67 @@ import SwiftUI
 
 struct Home: View {
 
+    @State private var profile = UserProfileStorage.load()
+
     private let oliveGreen = OliveTheme.primaryGreen
     private let deepOlive = OliveTheme.deepOlive
     private let warmBackground = OliveTheme.warmBackground
     private let cardBackground = OliveTheme.cardBackground
+
+    private var greetingName: String {
+        let trimmedName = profile.fullName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedName.isEmpty ? "there" : trimmedName
+    }
+
+    private var healthProfileItems: [HealthProfileItem] {
+        var items: [HealthProfileItem] = []
+
+        items.append(
+            contentsOf: profile.conditions.sortedByName.map { condition in
+                HealthProfileItem(
+                    title: condition.rawValue,
+                    detail: "Medical condition",
+                    systemImage: condition.icon,
+                    tint: Color(red: 0.50, green: 0.58, blue: 0.50)
+                )
+            }
+        )
+
+        items.append(
+            contentsOf: profile.allergies.sortedByName.map { allergy in
+                HealthProfileItem(
+                    title: allergy.rawValue,
+                    detail: "Food allergy",
+                    systemImage: allergy.icon,
+                    tint: Color(red: 0.66, green: 0.49, blue: 0.24)
+                )
+            }
+        )
+
+        items.append(
+            contentsOf: profile.dietaryPreferences.sortedByName.map { preference in
+                HealthProfileItem(
+                    title: preference.rawValue,
+                    detail: "Dietary preference",
+                    systemImage: preference.icon,
+                    tint: oliveGreen
+                )
+            }
+        )
+
+        if let goal = profile.goal {
+            items.append(
+                HealthProfileItem(
+                    title: goal.rawValue,
+                    detail: "Primary goal",
+                    systemImage: goal.icon,
+                    tint: Color(red: 0.45, green: 0.52, blue: 0.68)
+                )
+            )
+        }
+
+        return items
+    }
 
     var body: some View {
         NavigationStack {
@@ -20,9 +77,8 @@ struct Home: View {
                 VStack(alignment: .leading, spacing: 18) {
                     headerSection
                     healthProfileSection
-                    todaysSummarySection
-                    quickActionsSection
                     askOliveSection
+                    quickActionsSection
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
@@ -30,6 +86,9 @@ struct Home: View {
             }
             .background(warmBackground.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            .onAppear {
+                profile = UserProfileStorage.load()
+            }
         }
     }
 
@@ -46,7 +105,7 @@ struct Home: View {
                 )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Good morning, Alex")
+                Text("Good morning, \(greetingName)")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(deepOlive)
 
@@ -82,66 +141,54 @@ struct Home: View {
                     systemImage: "heart.text.square"
                 )
 
-                VStack(spacing: 10) {
-                    profileRow(
-                        title: "Type 2 Diabetes",
-                        detail: "Manage blood sugar",
-                        systemImage: "drop.fill",
-                        tint: Color(red: 0.50, green: 0.58, blue: 0.50)
-                    )
+                if healthProfileItems.isEmpty {
+                    emptyHealthProfileRow
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(healthProfileItems.prefix(5)) { item in
+                            profileRow(
+                                title: item.title,
+                                detail: item.detail,
+                                systemImage: item.systemImage,
+                                tint: item.tint
+                            )
+                        }
 
-                    profileRow(
-                        title: "Hypertension",
-                        detail: "Watch sodium",
-                        systemImage: "heart.fill",
-                        tint: Color(red: 0.56, green: 0.42, blue: 0.38)
-                    )
-
-                    profileRow(
-                        title: "Peanut Allergy",
-                        detail: "Avoid peanut ingredients",
-                        systemImage: "exclamationmark.shield.fill",
-                        tint: Color(red: 0.66, green: 0.49, blue: 0.24)
-                    )
+                        if healthProfileItems.count > 5 {
+                            Text("+ \(healthProfileItems.count - 5) more saved profile details")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(deepOlive.opacity(0.68))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 2)
+                        }
+                    }
                 }
             }
         }
     }
 
-    private var todaysSummarySection: some View {
-        dashboardCard {
-            VStack(alignment: .leading, spacing: 14) {
-                sectionHeader(
-                    title: "Today's Summary",
-                    systemImage: "chart.bar.fill"
+    private var emptyHealthProfileRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.questionmark")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(oliveGreen)
+                .frame(width: 34, height: 34)
+                .background(
+                    Circle()
+                        .fill(oliveGreen.opacity(0.14))
                 )
 
-                HStack(spacing: 10) {
-                    summaryTile(
-                        value: "1,450",
-                        unit: "mg",
-                        label: "Sodium",
-                        status: "On track",
-                        systemImage: "drop"
-                    )
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No profile details yet")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(deepOlive)
 
-                    summaryTile(
-                        value: "112",
-                        unit: "g",
-                        label: "Carbs",
-                        status: "Steady",
-                        systemImage: "cube"
-                    )
-
-                    summaryTile(
-                        value: "80%",
-                        unit: "",
-                        label: "Goal Fit",
-                        status: "Good",
-                        systemImage: "leaf"
-                    )
-                }
+                Text("Complete onboarding or update your profile.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
+
+            Spacer()
         }
     }
 
@@ -161,7 +208,7 @@ struct Home: View {
 
                 actionCard(
                     title: "Find Food",
-                    subtitle: "Explore nearby",
+                    subtitle: "Explore nearby options",
                     systemImage: "magnifyingglass",
                     isPrimary: false
                 )
@@ -282,48 +329,6 @@ struct Home: View {
         }
     }
 
-    private func summaryTile(
-        value: String,
-        unit: String,
-        label: String,
-        status: String,
-        systemImage: String
-    ) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.system(size: 19, weight: .medium))
-                .foregroundStyle(oliveGreen)
-
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.system(size: 18, weight: .bold))
-
-                if !unit.isEmpty {
-                    Text(unit)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .foregroundStyle(deepOlive)
-
-            VStack(spacing: 2) {
-                Text(label)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(deepOlive.opacity(0.78))
-
-                Text(status)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.74))
-        )
-    }
-
     private func actionCard(
         title: String,
         subtitle: String,
@@ -365,6 +370,25 @@ struct Home: View {
             .shadow(color: deepOlive.opacity(0.08), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct HealthProfileItem: Identifiable {
+    let title: String
+    let detail: String
+    let systemImage: String
+    let tint: Color
+
+    var id: String {
+        "\(detail)-\(title)"
+    }
+}
+
+private extension Set where Element: RawRepresentable, Element.RawValue == String {
+    var sortedByName: [Element] {
+        sorted {
+            $0.rawValue < $1.rawValue
+        }
     }
 }
 
