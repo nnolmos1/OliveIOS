@@ -22,7 +22,7 @@ struct MainTabView: View {
 
     init(
         initialTab: Tab = .home,
-        usesDemoScanMenu: Bool = true
+        usesDemoScanMenu: Bool = false
     ) {
         self.usesDemoScanMenu = usesDemoScanMenu
         _selectedTab = State(initialValue: initialTab)
