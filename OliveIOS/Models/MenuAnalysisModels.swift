@@ -7,18 +7,22 @@
 
 import Foundation
 
-struct MenuAnalysisResult: Codable {
+// MARK: - Complete Analysis
+
+struct MenuAnalysisResult: Codable, Sendable {
     let safe: [AnalyzedMenuItem]
     let caution: [AnalyzedMenuItem]
     let avoid: [AnalyzedMenuItem]
 }
 
-struct AnalyzedMenuItem: Codable, Identifiable {
+// MARK: - Individual Menu Item
+
+struct AnalyzedMenuItem: Codable, Identifiable, Hashable, Sendable {
     let name: String
     let tag: String
     let explanation: String
 
     var id: String {
-        "\(name)-\(tag)"
+        "\(name)|\(tag)|\(explanation)"
     }
 }

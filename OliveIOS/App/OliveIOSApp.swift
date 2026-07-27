@@ -6,12 +6,39 @@
 //
 
 import SwiftUI
+import FirebaseCore
+import FirebaseAppCheck
+
+final class AppDelegate: NSObject, UIApplicationDelegate {
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions:
+            [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+
+        #if DEBUG
+        AppCheck.setAppCheckProviderFactory(
+            AppCheckDebugProviderFactory()
+        )
+        #endif
+
+        FirebaseApp.configure()
+        return true
+    }
+}
 
 @main
-struct OliveIOSApp: App {
+struct OliveIOS: App {
+
+    @UIApplicationDelegateAdaptor(AppDelegate.self)
+    private var delegate
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            NavigationView {
+                ContentView()
+            }
         }
     }
 }
