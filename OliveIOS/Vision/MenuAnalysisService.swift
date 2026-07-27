@@ -73,7 +73,7 @@ final class MenuAnalysisService {
         model = FirebaseAI
             .firebaseAI(backend: .googleAI())
             .generativeModel(
-                modelName: "gemini-3.5-flash",
+                modelName: "gemini-3.6-flash",
                 generationConfig: generationConfig,
                 systemInstruction: systemInstruction
             )
