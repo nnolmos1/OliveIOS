@@ -58,10 +58,18 @@ struct PreferencesView: View {
                 }
 
                 TextField(
-                    "Search preferences...",
-                    text: $searchText
+                    "",
+                    text: $searchText,
+                    prompt: Text("Search preferences...")
+                        .foregroundStyle(.black)
                 )
-                .textFieldStyle(.roundedBorder)
+                .foregroundStyle(.black)
+                .font(.body)
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white)
+                )
 
                 ScrollView {
 

@@ -51,9 +51,12 @@ struct ConditionsView: View {
 
                 // Search
                 TextField(
-                    "Search conditions...",
-                    text: $searchText
+                    "",
+                    text: $searchText,
+                    prompt: Text("Search conditions...")
+                        .foregroundStyle(.black)
                 )
+                .foregroundStyle(.black)
                 .font(.body)
                 .padding(10)
                 .background(
