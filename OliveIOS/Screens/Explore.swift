@@ -174,7 +174,7 @@ struct Explore: View {
 
                     Text("\(restaurant.distance) mi - \(restaurant.cuisine)")
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.black)
                 }
 
                 Spacer()
@@ -412,7 +412,7 @@ private struct RestaurantDetailView: View {
 
             Text(label)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.black)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 13)

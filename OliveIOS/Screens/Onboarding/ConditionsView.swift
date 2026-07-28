@@ -54,7 +54,12 @@ struct ConditionsView: View {
                     "Search conditions...",
                     text: $searchText
                 )
-                .textFieldStyle(.roundedBorder)
+                .font(.body)
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white)
+                )
 
                 ScrollView {
 
