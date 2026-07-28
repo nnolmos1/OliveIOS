@@ -144,9 +144,7 @@ struct ScanMenuView: View {
                 } label: {
                     Text(mode.rawValue)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(
-                            selectedMode == mode ? Color.primary : Color.secondary
-                        )
+                        .foregroundStyle(Color.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 9)
                         .background {

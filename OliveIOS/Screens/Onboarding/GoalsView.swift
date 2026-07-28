@@ -65,7 +65,7 @@ struct GoalsView: View {
 
                 NavigationLink {
 
-                    PermissionsView()
+                    OnboardingCompleteView()
 
                 } label: {
 

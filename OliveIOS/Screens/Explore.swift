@@ -93,10 +93,20 @@ struct Explore: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.black)
 
-            TextField("Search restaurants or cuisines", text: $searchText)
-                .font(.system(size: 14))
+            ZStack(alignment: .leading) {
+                if searchText.isEmpty {
+                    Text("Search restaurants or cuisines")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.black)
+                        .allowsHitTesting(false)
+                }
+
+                TextField("", text: $searchText)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.black)
+            }
 
             if !searchText.isEmpty {
                 Button {
